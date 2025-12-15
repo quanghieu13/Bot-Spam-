@@ -23,6 +23,35 @@ current_message = "bờm thối" # Nội dung mặc định
 # VÒNG LẶP SPAM (CORE)
 # ======================================================
 
+@bot.event
+async def on_ready():
+    # 1. Phần đồng bộ lệnh (Giữ nguyên)
+    try:
+        synced = await bot.tree.sync()
+        print(f"✅ Đã đồng bộ {len(synced)} lệnh Slash.")
+    except Exception as e:
+        print(f"❌ Lỗi đồng bộ lệnh: {e}")
+    
+    # 2. Phần in thông tin (Giữ nguyên)
+    print(f'🤖 Bot online: {bot.user} | Admin: {ID_ADMIN}')
+
+    # 3. PHẦN MỚI: Vòng lặp cập nhật Ping (Thay thế cho dòng change_presence cũ)
+    # Lưu ý: Phải đặt đoạn này ở CUỐI CÙNG của hàm on_ready
+    while True:
+        # Tính độ trễ hiện tại
+        latency = round(bot.latency * 1000) 
+        
+        # Cập nhật Status
+        await bot.change_presence(
+            activity=discord.Activity(
+                name=f"Ping: {latency}ms", 
+                type=discord.ActivityType.watching
+            )
+        )
+        
+        # Đợi 10 giây rồi mới cập nhật tiếp (để tránh lag bot)
+        await asyncio.sleep(15)
+        
 @tasks.loop(seconds=1) # Mặc định là 1s, sẽ thay đổi khi dùng lệnh /start
 async def spam_task():
     global current_channel_id, current_message
