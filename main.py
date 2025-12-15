@@ -24,17 +24,6 @@ current_message = "bờm thối" # Nội dung mặc định
 # ======================================================
 
 @bot.event
-async def on_ready():
-    # 1. Phần đồng bộ lệnh (Giữ nguyên)
-    try:
-        synced = await bot.tree.sync()
-        print(f"✅ Đã đồng bộ {len(synced)} lệnh Slash.")
-    except Exception as e:
-        print(f"❌ Lỗi đồng bộ lệnh: {e}")
-    
-    # 2. Phần in thông tin (Giữ nguyên)
-    print(f'🤖 Bot online: {bot.user} | Admin: {ID_ADMIN}')
-
     # 3. PHẦN MỚI: Vòng lặp cập nhật Ping (Thay thế cho dòng change_presence cũ)
     # Lưu ý: Phải đặt đoạn này ở CUỐI CÙNG của hàm on_ready
     while True:
