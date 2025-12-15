@@ -20,28 +20,25 @@ current_channel_id = None
 current_message = "bờm thối" # Nội dung mặc định
 
 # ======================================================
-# VÒNG LẶP SPAM (CORE)
+# CÁC TASK VÒNG LẶP (Loop Tasks)
 # ======================================================
 
-@bot.event
-    # 3. PHẦN MỚI: Vòng lặp cập nhật Ping (Thay thế cho dòng change_presence cũ)
-    # Lưu ý: Phải đặt đoạn này ở CUỐI CÙNG của hàm on_ready
-    while True:
-        # Tính độ trễ hiện tại
-        latency = round(bot.latency * 1000) 
-        
-        # Cập nhật Status
-        await bot.change_presence(
-            activity=discord.Activity(
-                name=f"Ping: {latency}ms", 
-                type=discord.ActivityType.watching
-            )
+# 1. Task cập nhật Ping (Thay thế cho đoạn code lỗi của bạn)
+@tasks.loop(seconds=15)
+async def update_ping_task():
+    # Tính độ trễ hiện tại
+    latency = round(client.latency * 1000)
+    
+    # Cập nhật Status
+    await client.change_presence(
+        activity=discord.Activity(
+            name=f"Ping: {latency}ms", 
+            type=discord.ActivityType.watching
         )
-        
-        # Đợi 10 giây rồi mới cập nhật tiếp (để tránh lag bot)
-        await asyncio.sleep(15)
-        
-@tasks.loop(seconds=1) # Mặc định là 1s, sẽ thay đổi khi dùng lệnh /start
+    )
+
+# 2. Task Spam tin nhắn
+@tasks.loop(seconds=1) 
 async def spam_task():
     global current_channel_id, current_message
 
@@ -58,14 +55,12 @@ async def spam_task():
         # Lỗi 429 (Too Many Requests) hoặc lỗi mạng Discord
         if e.status == 429:
             print(f"⚠️ Đang bị Discord chặn (Rate Limit). Tạm nghỉ 5 giây...")
-            await asyncio.sleep(5) # Nghỉ 5s để Discord thả ra
+            await asyncio.sleep(5) 
         else:
             print(f"⚠️ Lỗi HTTP: {e}")
 
     except Exception as e:
-        # Các lỗi khác (ví dụ: mất mạng, lỗi server)
         print(f"❌ Lỗi không xác định trong vòng lặp: {e}")
-        # Không làm gì cả, vòng lặp sẽ tự chạy lại ở lần kế tiếp
 
 # ======================================================
 # SỰ KIỆN BOT (EVENTS)
@@ -74,7 +69,12 @@ async def spam_task():
 @client.event
 async def on_ready():
     # Đồng bộ lệnh với Discord
-    await tree.sync() 
+    await tree.sync()
+    
+    # Bắt đầu vòng lặp cập nhật Ping ngay khi bot bật
+    if not update_ping_task.is_running():
+        update_ping_task.start()
+        
     print('----------------------------------')
     print(f'🤖 Bot đã đăng nhập: {client.user}')
     print('----------------------------------')
@@ -85,14 +85,13 @@ async def on_ready():
 
 @tree.command(name="start", description="Bắt đầu Spam tin nhắn.")
 @discord.app_commands.describe(
-    speed="Thời gian chờ giữa mỗi tin nhắn (giây). Tối thiểu 1 giây để an toàn.",
+    speed="Thời gian chờ giữa mỗi tin nhắn (giây). Tối thiểu 1 giây.",
     word="Từ hoặc cụm từ mà bot sẽ gửi lặp lại."
 )
 async def start_command(interaction: discord.Interaction, speed: float, word: str):
     global current_channel_id, current_message
 
     # 1. Kiểm tra tốc độ an toàn
-    # Replit Free rất yếu, nên để tối thiểu 1s để tránh bị Kill
     if speed < 1.0: 
         await interaction.response.send_message("⚠️ Để tránh bot bị sập, tốc độ tối thiểu là **1.0 giây**.", ephemeral=True)
         return
@@ -119,19 +118,17 @@ async def stop_command(interaction: discord.Interaction):
 
     if spam_task.is_running():
         spam_task.stop()
-        current_channel_id = None # Xóa channel ID để an toàn
+        current_channel_id = None
         await interaction.response.send_message("✅ Đã dừng spam thành công.")
     else:
         await interaction.response.send_message("Bot hiện tại có chạy đâu mà dừng? 🤔", ephemeral=True)
 
 # ======================================================
-# KHỞI ĐỘNG HỆ THỐNG (AUTO-RESTART)
+# KHỞI ĐỘNG HỆ THỐNG
 # ======================================================
 
-# 1. Bật Web Server để Uptime Robot ping
 keep_alive()
 
-# 2. Vòng lặp bất tử để chạy Bot
 if __name__ == "__main__":
     TOKEN = os.getenv('DISCORD_TOKEN')
 
@@ -140,10 +137,8 @@ if __name__ == "__main__":
     else:
         while True:
             try:
-                # Chạy bot
                 client.run(TOKEN)
             except Exception as e:
                 print(f"\n⚠️ Bot bị crash hoặc mất kết nối: {e}")
                 print("🔄 Đang tự động khởi động lại sau 10 giây...")
                 time.sleep(10)
-                # Sau 10s vòng lặp while True sẽ chạy lại client.run()
